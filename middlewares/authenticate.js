@@ -1,25 +1,20 @@
-const jwt = require('jsonwebtoken');
+const jwt = require("jsonwebtoken");
+const admin = require("../config/firebase");
 
-const authenticate = (req, res, next) => {
-  const authHeader = req.header('Authorization');
-  if (!authHeader) {
-    return res.status(401).send({ error: 'Access denied. No token provided.' });
-  }
+const authenticate = async (req, res, next) => {
+  const idToken = req.headers.authorization;
 
-  const token = authHeader.replace('Bearer ', '');
-  if (!token) {
-    return res.status(401).send({ error: 'Access denied. No token provided.' });
+  if (!idToken) {
+    return res.status(401).send("Unauthorized");
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    req.user = decodedToken;
     next();
   } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).send({ error: 'Token expired.' });
-    }
-    res.status(400).send({ error: 'Invalid token.' });
+    console.error("Error verifying ID token:", error);
+    return res.status(401).send("Unauthorized");
   }
 };
 
