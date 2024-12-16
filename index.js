@@ -1,4 +1,4 @@
-require('dotenv').config(); // Load environment variables from .env file
+require('dotenv').config(); // Load environment variables
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -7,42 +7,48 @@ const hpp = require('hpp');
 const morgan = require('morgan');
 const mongoose = require('mongoose');
 const rateLimit = require('express-rate-limit');
-const userRoutes = require('./routes/userRoutes');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const errorHandler = require('./middlewares/errorHandler');
+const paymentRoutes = require('./routes/paymentRoutes');
 
 const app = express();
 
-// Middleware
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json()); // Parse JSON bodies
-app.use(cors());
-app.use(helmet());
-app.use(hpp()); // Prevent HTTP Parameter Pollution
-app.use(morgan('combined'));
 
-// Rate Limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+
+// Validate Environment Variables
+['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'MONGODB_URI'].forEach((key) => {
+  if (!process.env[key]) throw new Error(`Missing required environment variable: ${key}`);
 });
-app.use(limiter);
+
 
 // Database Connection
-mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
     console.log('Connected to MongoDB');
-
-    const port = process.env.PORT || 3000;
-    app.listen(port, () => {
-      console.log(`Server running on port ${port}`);
-    });
+    const port = process.env.PORT || 8082;
+    app.listen(port, () => console.log(`Server running on port ${port}`));
   })
-  .catch((error) => {
-    console.error('Error connecting to MongoDB:', error.message);
-  });
+  .catch((error) => console.error('Error connecting to MongoDB:', error.message));
 
-// Routes
-app.use('/api/users/v1', userRoutes);
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(cors());
+app.use(helmet());
+app.use(hpp());
+app.use(morgan('combined'));
+
+// Rate Limiter
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit per IP
+  keyGenerator: (req) => req.ip,
+});
+app.use(limiter);
+// Payment Routes
+app.use('/api/payment', paymentRoutes);
+
+
+  
 
 // Error Handling Middleware
 app.use(errorHandler);
