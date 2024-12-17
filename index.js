@@ -10,6 +10,7 @@ const rateLimit = require('express-rate-limit');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const errorHandler = require('./middlewares/errorHandler');
 const paymentRoutes = require('./routes/paymentRoutes');
+const imageGenerationRoutes = require('./routes/imageGenerationRoutes.js');
 
 const app = express();
 
@@ -44,11 +45,15 @@ const limiter = rateLimit({
   keyGenerator: (req) => req.ip,
 });
 app.use(limiter);
+
 // Payment Routes
 app.use('/api/payment', paymentRoutes);
+// Image Generation Routes
+app.use('/api/image', imageGenerationRoutes);
 
 
   
 
 // Error Handling Middleware
 app.use(errorHandler);
+
