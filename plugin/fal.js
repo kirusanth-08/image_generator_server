@@ -1,3 +1,4 @@
+import { fal } from '@fal-ai/client';
 const axios = require('axios');
 
 class FALAI {

@@ -11,6 +11,7 @@ const rateLimit = require('express-rate-limit');
 const errorHandler = require('./middlewares/errorHandler');
 // const paymentRoutes = require('./routes/paymentRoutes');
 const imageGenerationRoutes = require('./routes/imageGenerationRoutes.js');
+const responseTestRoute = require('./routes/responseTestRoute.js');
 
 const app = express();
 
@@ -50,6 +51,9 @@ app.use(limiter);
 // app.use('/api/payment', paymentRoutes);
 // Image Generation Routes
 app.use('/api/image', imageGenerationRoutes);
+
+// Test Response Routes
+app.use('/api', responseTestRoute);
 
 
   
