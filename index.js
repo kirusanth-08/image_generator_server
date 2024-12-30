@@ -7,13 +7,12 @@ const hpp = require("hpp");
 const morgan = require("morgan");
 const mongoose = require("mongoose");
 const rateLimit = require("express-rate-limit");
-// const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const errorHandler = require("./middlewares/errorHandler");
-// const paymentRoutes = require('./routes/paymentRoutes');
 const imageGenerationRoutes = require("./routes/imageGenerationRoutes.js");
 const responseTestRoute = require("./routes/responseTestRoute.js");
 const userRoutes = require("./routes/userRoutes.js");
-
+const paymentRoutes = require("./routes/paymentRoutes.js");
 const app = express();
 
 ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "MONGODB_URI"].forEach((key) => {
@@ -45,6 +44,14 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
+// Payment Routes
+// app.use('/api/payment', paymentRoutes);
+// Image Generation Routes
+app.use("/api/image", imageGenerationRoutes);
+
+// Test Response Routes
+app.use("/api", responseTestRoute);
+
 app.use(morgan("combined"));
 
 app.post(
@@ -57,7 +64,7 @@ app.post(
       const event = stripe.webhooks.constructEvent(
         req.body,
         sig,
-        process.env.STRIPE_WEBHOOK_SECRET
+        webhookSecret
       );
 
       switch (event.type) {
@@ -78,7 +85,8 @@ app.post(
 
         // Handle other event types as needed
         default:
-          console.log(`Unhandled event type ${event.type}`);
+          console.log(`Unhandled event type: ${event.type}`);
+          break;
       }
 
       res.json({ received: true });
