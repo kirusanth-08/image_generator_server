@@ -11,9 +11,10 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const errorHandler = require("./middlewares/errorHandler");
 const imageGenerationRoutes = require("./routes/imageGenerationRoutes.js");
 const responseTestRoute = require("./routes/responseTestRoute.js");
-const userRoutes = require("./routes/userRoutes.js");
 const paymentRoutes = require("./routes/paymentRoutes.js");
+const userRoutes = require("./routes/userRoutes.js");
 const app = express();
+const User = require("./models/User.js");
 
 ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "MONGODB_URI"].forEach((key) => {
   if (!process.env[key])
@@ -44,14 +45,6 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Payment Routes
-// app.use('/api/payment', paymentRoutes);
-// Image Generation Routes
-app.use("/api/image", imageGenerationRoutes);
-
-// Test Response Routes
-app.use("/api", responseTestRoute);
-
 app.use(morgan("combined"));
 
 app.post(
@@ -59,6 +52,7 @@ app.post(
   express.raw({ type: "application/json" }),
   async (req, res) => {
     const sig = req.headers["stripe-signature"];
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
     try {
       const event = stripe.webhooks.constructEvent(
@@ -67,21 +61,43 @@ app.post(
         webhookSecret
       );
 
+      if (!event || !event.data || !event.data.object) {
+        console.error("Invalid webhook payload:", event);
+        return res.status(400).json({ error: "Invalid webhook payload" });
+      }
+      console.log(`Event type: ${event.type}`);
+
       switch (event.type) {
-        case "checkout.session.completed":
+        case "checkout.session.completed": {
           const session = event.data.object;
           const { tokenCount, userId } = session.metadata || {};
-          console.log("Payment successful!", {
-            tokenCount,
-            userId,
-            customerId: session.customer,
-          });
 
-          // TODO: Implement your business logic here
-          // await User.findByIdAndUpdate(userId, {
-          //   $inc: { tokenBalance: parseInt(tokenCount || 0) }
-          // });
+          if (!userId) {
+            console.error("User ID missing in session metadata");
+            break;
+          }
+
+          const tokens = parseInt(tokenCount, 10) || 0;
+
+          if (tokens <= 0) {
+            console.error("Invalid token count in session metadata");
+            break;
+          }
+
+          // Update user tokens in the database
+          const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            { $inc: { tokenBalance: tokens } },
+            { new: true }
+          );
+
+          if (updatedUser) {
+            console.log("User updated with new token balance:", updatedUser);
+          } else {
+            console.error("User not found for token update");
+          }
           break;
+        }
 
         // Handle other event types as needed
         default:
@@ -89,13 +105,11 @@ app.post(
           break;
       }
 
-      res.json({ received: true });
-    } catch (err) {
-      console.error("Webhook Error:", err.message);
-      return res.status(400).json({
-        error: "Webhook signature verification failed",
-        message: err.message,
-      });
+      // Acknowledge receipt of the event
+      res.status(200).json({ received: true });
+    } catch (error) {
+      console.error("Error processing webhook event:", error.message);
+      res.status(400).json({ error: "Webhook error: " + error.message });
     }
   }
 );
@@ -103,11 +117,12 @@ app.post(
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-app.use(errorHandler);
-
+app.use("/api/payment", paymentRoutes);
 app.use("/api/image", imageGenerationRoutes);
 app.use("/api", responseTestRoute);
 app.use("/api/users", userRoutes);
+
+app.use(errorHandler);
 
 // Database Connection
 mongoose
