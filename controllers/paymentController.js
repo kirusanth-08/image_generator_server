@@ -3,7 +3,8 @@ const { model } = require("mongoose");
 const { v4: uuidv4 } = require("uuid");
 
 const createCheckoutSession = async (req, res) => {
-    console.log("hiihhiihihihihi")
+   
+
     try {
         const { product } = req.body;
         if (!product) {
@@ -20,7 +21,7 @@ const createCheckoutSession = async (req, res) => {
                             name: product.title,
                             description: product.description
                         },
-                        unit_amount: product.price * 100, // Convert to cents
+                        unit_amount: product.price * 100, 
                     },
                     quantity: 1,
                 },
@@ -44,33 +45,5 @@ const createCheckoutSession = async (req, res) => {
 };
   
 
-const paymentController = async (req, res) => {
-    const { product, token } = req.body;
-    const idempotencyKey = uuidv4();
-    
 
-    try {
-        const customer = await stripe.customers.create({
-            email: token.email,
-            source: token.id,
-        });
-
-        const charge = await stripe.charges.create(
-            {
-                amount: product.price * 100,
-                currency: 'usd',
-                customer: customer.id,
-                receipt_email: token.email,
-                description: product.name,
-            },
-            { idempotencyKey }
-        );
-
-        res.status(200).json(charge);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Payment failed' });
-    }
-};
-
-module.exports = { paymentController , createCheckoutSession};
+module.exports = {createCheckoutSession};
