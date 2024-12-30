@@ -1,4 +1,4 @@
-import { fal } from '@fal-ai/client';
+const fal = require('@fal-ai/client');
 const axios = require('axios');
 
 class FALAI {
