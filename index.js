@@ -1,35 +1,36 @@
-require('dotenv').config();
-const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-const helmet = require('helmet');
-const hpp = require('hpp');
-const morgan = require('morgan');
-const mongoose = require('mongoose');
-const rateLimit = require('express-rate-limit');
- const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-const errorHandler = require('./middlewares/errorHandler');
-const imageGenerationRoutes = require('./routes/imageGenerationRoutes.js');
-const responseTestRoute = require('./routes/responseTestRoute.js');
-const paymentRoutes = require('./routes/paymentRoutes.js');
+require("dotenv").config();
+const express = require("express");
+const bodyParser = require("body-parser");
+const cors = require("cors");
+const helmet = require("helmet");
+const hpp = require("hpp");
+const morgan = require("morgan");
+const mongoose = require("mongoose");
+const rateLimit = require("express-rate-limit");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const errorHandler = require("./middlewares/errorHandler");
+const imageGenerationRoutes = require("./routes/imageGenerationRoutes.js");
+const responseTestRoute = require("./routes/responseTestRoute.js");
+const paymentRoutes = require("./routes/paymentRoutes.js");
+const userRoutes = require("./routes/userRoutes.js");
 const app = express();
-const User = require('./models/User.js');
+const User = require("./models/User.js");
 
-['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'MONGODB_URI'].forEach((key) => {
-  if (!process.env[key]) throw new Error(`Missing required environment variable: ${key}`);
+["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "MONGODB_URI"].forEach((key) => {
+  if (!process.env[key])
+    throw new Error(`Missing required environment variable: ${key}`);
 });
-
-
 
 app.use(helmet());
 app.use(hpp());
 
-
-app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
-  methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    methods: ["GET", "POST"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
 // Rate Limiter
 const limiter = rateLimit({
@@ -37,20 +38,14 @@ const limiter = rateLimit({
   max: 100,
   keyGenerator: (req) => req.ip,
   handler: (req, res) => {
-    res.status(429).json({ error: 'Too many requests, please try again later.' });
-  }
+    res
+      .status(429)
+      .json({ error: "Too many requests, please try again later." });
+  },
 });
 app.use(limiter);
 
-
-
-app.use('/api/image', imageGenerationRoutes);
-
-
-app.use('/api', responseTestRoute);
-
-
-app.use(morgan('combined'));
+app.use(morgan("combined"));
 
 app.post(
   "/webhook",
@@ -66,19 +61,17 @@ app.post(
         webhookSecret
       );
 
-
       if (!event || !event.data || !event.data.object) {
         console.error("Invalid webhook payload:", event);
         return res.status(400).json({ error: "Invalid webhook payload" });
       }
       console.log(`Event type: ${event.type}`);
 
-   
       switch (event.type) {
         case "checkout.session.completed": {
           const session = event.data.object;
           const { tokenCount, userId } = session.metadata || {};
-          
+
           if (!userId) {
             console.error("User ID missing in session metadata");
             break;
@@ -114,41 +107,39 @@ app.post(
 
       // Acknowledge receipt of the event
       res.status(200).json({ received: true });
+    } catch (error) {
+      console.error("Error processing webhook event:", error.message);
+      res.status(400).json({ error: "Webhook error: " + error.message });
     }
-      catch (error) {
-        console.error("Error processing webhook event:", error.message);
-        res.status(400).json({ error: "Webhook error: " + error.message });
-      }
-    }
-  );
-      
-
+  }
+);
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-app.use('/api/payment', paymentRoutes);
-
+app.use("/api/payment", paymentRoutes);
+app.use("/api/image", imageGenerationRoutes);
+app.use("/api", responseTestRoute);
+app.use("/api/users", userRoutes);
 
 app.use(errorHandler);
 
-
 // Database Connection
-mongoose.connect(process.env.MONGODB_URI)
+mongoose
+  .connect(process.env.MONGODB_URI)
   .then(() => {
-    console.log('Connected to MongoDB');
+    console.log("Connected to MongoDB");
     const port = process.env.PORT || 8082;
     app.listen(port, () => console.log(`Server running on port ${port}`));
   })
   .catch((error) => {
-    console.error('Error connecting to MongoDB:', error.message);
+    console.error("Error connecting to MongoDB:", error.message);
     process.exit(1); // Exit if database connection fails
   });
 
 // Handle unhandled promise rejections
-process.on('unhandledRejection', (err) => {
-  console.error('Unhandled Promise Rejection:', err);
+process.on("unhandledRejection", (err) => {
+  console.error("Unhandled Promise Rejection:", err);
   // Gracefully shutdown server
   server.close(() => process.exit(1));
 });
-

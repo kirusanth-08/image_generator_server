@@ -11,11 +11,6 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
-
-  isVerified: {
-    type: Boolean,
-    default: false,
-  },
 });
 
 const User = mongoose.model("User", userSchema);

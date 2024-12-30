@@ -5,7 +5,9 @@ require("dotenv").config();
 
 const register = async (req, res) => {
   try {
+    console.log(req.body);
     const { email } = req.body;
+
     let user = await User.findOne({ email: email });
     if (!user) {
       user = new User({ email });
@@ -13,6 +15,7 @@ const register = async (req, res) => {
     }
     res.status(201).send({ message: "User registered successfully" });
   } catch (error) {
+    console.log(error);
     res.status(400).send({ error: error.message });
   }
 };
