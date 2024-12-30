@@ -7,15 +7,19 @@ const hpp = require('hpp');
 const morgan = require('morgan');
 const mongoose = require('mongoose');
 const rateLimit = require('express-rate-limit');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+// const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const errorHandler = require('./middlewares/errorHandler');
-const paymentRoutes = require('./routes/paymentRoutes');
+// const paymentRoutes = require('./routes/paymentRoutes');
+const imageGenerationRoutes = require('./routes/imageGenerationRoutes.js');
+const responseTestRoute = require('./routes/responseTestRoute.js');
 
 const app = express();
+
 
 ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'MONGODB_URI'].forEach((key) => {
   if (!process.env[key]) throw new Error(`Missing required environment variable: ${key}`);
 });
+
 
 
 app.use(helmet());
@@ -38,6 +42,16 @@ const limiter = rateLimit({
   }
 });
 app.use(limiter);
+
+
+// Payment Routes
+// app.use('/api/payment', paymentRoutes);
+// Image Generation Routes
+app.use('/api/image', imageGenerationRoutes);
+
+// Test Response Routes
+app.use('/api', responseTestRoute);
+
 
 app.use(morgan('combined'));
 
@@ -94,6 +108,7 @@ app.use('/api/payment', paymentRoutes);
 
 app.use(errorHandler);
 
+
 // Database Connection
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
@@ -112,3 +127,4 @@ process.on('unhandledRejection', (err) => {
   // Gracefully shutdown server
   server.close(() => process.exit(1));
 });
+
