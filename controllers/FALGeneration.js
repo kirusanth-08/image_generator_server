@@ -1,4 +1,6 @@
 const FALAI = require("../plugin/fal");
+const GeneratedImageSchema = require("../models/generatedImages");
+const axios = require("axios");
 
 const { fal } = require("@fal-ai/client");
 
@@ -10,34 +12,144 @@ fal.config({
 const generateImageFalDev = async (req, res) => {
   try {
     // const fal = new FALAI(process.env.FAL_API_TOKEN);
+    const { no_of_images, prompt, user_id } = req.body;
     const input = {
-      prompt:
-        'Extreme close-up of a single tiger eye, direct frontal view. Detailed iris and pupil. Sharp focus on eye texture and color. Natural lighting to capture authentic eye shine and depth. The word "FLUX" is painted over it in big, white brush strokes with visible texture.',
+      prompt: prompt,
       image_size: "landscape_4_3",
       num_inference_steps: 28,
       guidance_scale: 3.5,
-      num_images: 1,
+      num_images: no_of_images,
       enable_safety_checker: true,
     };
 
-    // const input = {
-    //   prompt: req.body.prompt,
-    //   subject: req.body.subject,
-    //   output_format: req.body.output_format,
-    //   number_of_outputs: req.body.number_of_outputs,
-    // };
-
-    const { request_id } = await fal.queue.submit("fal-ai/flux/dev", {
+    const data = await fal.queue.submit("fal-ai/flux/dev", {
       input: input,
-      webhookUrl: "https://optional.webhook.url/for/results",
+      webhookUrl: `${process.env.WEBHOOK_BASE_URL}/api/image/webhook/faldev`,
     });
 
-    console.log(request_id);
+    console.log(data);
+    if (data) {
+      const generatedImage = new GeneratedImageSchema({
+        userId: user_id,
+        prompt: prompt,
+        createdAt: new Date(),
+        number_of_images_per_pose: no_of_images,
+        requestId: data.request_id,
+        status: data.status,
+      });
+      await generatedImage.save();
+    }
 
-    res.status(200).json(request_id);
+    res.status(200).json({ request_id: data.request_id });
   } catch (error) {
     console.error("Error generating image:", error);
     res.status(500).send("An error occurred while generating the image.");
+  }
+};
+
+const falDevWebhookHandler = async (req, res) => {
+  try {
+    console.log("Webhook received----------------------");
+    console.log(req.body);
+    console.log("---------------------------------");
+    console.log(req.body.payload.images);
+    console.log("---------------------------------");
+    console.log(req.body.payload.images[0]);
+
+    res.status(200).send("Webhook processed");
+  } catch (error) {
+    console.error("Webhook processing error:", error);
+    res.status(500).json({ error: "Failed to process webhook" });
+  }
+};
+
+function getLatestProgress(dataArray) {
+  if (!Array.isArray(dataArray) || dataArray.length === 0) {
+    return { currentprogress: 0, totalprogress: 0 }; // Default values if the array is invalid or empty
+  }
+
+  // Get the latest element in the array
+  const latestElement = dataArray[dataArray.length - 1];
+
+  // Extract the message field
+  const message = latestElement.message;
+
+  // Use a regular expression to extract progress numbers
+  const match = message.match(/(\d+)%/);
+  if (match) {
+    const currentprogress = parseInt(match[1], 10);
+    const totalprogress = 100;
+    return { currentprogress, totalprogress };
+  }
+
+  return { currentprogress: 0, totalprogress: 0 }; // Default values if parsing fails
+}
+
+const getGeneratedImage = async (req, res) => {
+  try {
+    console.log("getGeneratedImage req.body", req.body);
+    const { request_id } = req.body;
+
+    const generation = await GeneratedImageSchema.findOne({
+      requestId: request_id,
+    });
+
+    console.log("generation", generation);
+
+    if (!generation) {
+      return res.status(404).json({ error: "Generation not found" });
+    }
+
+    if (generation.status !== "completed") {
+      const data = await fal.queue.status("fal-ai/flux/dev", {
+        requestId: request_id,
+        logs: true,
+      });
+
+      console.log("data", data);
+      if (data) {
+        const resp = {
+          status: data.status,
+          progress: getLatestProgress(data.logs),
+        };
+        res.json(resp);
+      }
+      // await axios
+      //   .get(
+      //     `https://queue.fal.run/fal-ai/flux/dev/requests/${request_id}/status?logs=1`,
+
+      //     {
+      //       headers: {
+      //         Authorization: `Key ${process.env.FAL_API_KEY}`,
+      //         "Content-Type": "application/json",
+      //       },
+      //     }
+      //   )
+      //   .then(async (response) => {
+      //     console.log("Response:", response.data);
+      //     console.log("Response2222222:", response.data.logs[0]);
+
+      //     console.log("aaaaaaa", getLatestProgress(response.data.logs));
+      //     const resp = {
+      //       status: response.data.status,
+      //       progress: getLatestProgress(response.data.logs),
+      //     };
+      //     res.json(resp);
+      //   })
+      //   .catch((error) => {
+      //     console.error("Error:", error);
+      //     res.status(500).json({ error: "Failed to check generation status" });
+      //   });
+    } else {
+      const response = {
+        status: generation.status,
+        outputUrl: generation.outputUrl,
+      };
+      res.json(response);
+    }
+  } catch (error) {
+    console.error("Status check error:", error);
+    res.status(500).json({ error: "Failed to check generation status" });
   }
 };
 
@@ -95,4 +207,6 @@ module.exports = {
   generateImageFalLora,
   getStatusWithFAL,
   getResultWithFAL,
+  falDevWebhookHandler,
+  getGeneratedImage,
 };
