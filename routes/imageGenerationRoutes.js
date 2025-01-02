@@ -3,12 +3,14 @@ const {
   generateVariences,
   getStatusWithReplicate,
   getResultWithReplicate,
+  getReplicateGeneratedImage,
+  replicateWebhookHandler,
 } = require("../controllers/REPLICATEGeneration");
 const {
   generateImageFalDev,
   generateImageFalLora,
   falDevWebhookHandler,
-  getGeneratedImage,
+  getFalGeneratedImage,
 } = require("../controllers/FALGeneration");
 // const authenticate = require('../middlewares/authenticate');
 
@@ -52,6 +54,8 @@ router.get(
 );
 
 router.post("/webhook/faldev", falDevWebhookHandler);
-router.post("/generatedImage", getGeneratedImage);
+router.post("/fal/generatedImage", getFalGeneratedImage);
+router.post("/replicate/generatedImage", getReplicateGeneratedImage);
+router.post("/webhook/replicate", replicateWebhookHandler);
 
 module.exports = router;

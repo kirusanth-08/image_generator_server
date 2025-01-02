@@ -55,6 +55,20 @@ const falDevWebhookHandler = async (req, res) => {
     console.log(req.body.payload.images);
     console.log("---------------------------------");
     console.log(req.body.payload.images[0]);
+    if (req.body.status === "OK") {
+      const generation = await GeneratedImageSchema.findOne({
+        requestId: req.body.request_id,
+      });
+      if (generation) {
+        let images = [];
+        generation.status = "completed";
+        req.body.payload.images.map((image) => {
+          images.push(image.url);
+        });
+        generation.images = images;
+        await generation.save();
+      }
+    }
 
     res.status(200).send("Webhook processed");
   } catch (error) {
@@ -85,7 +99,7 @@ function getLatestProgress(dataArray) {
   return { currentprogress: 0, totalprogress: 0 }; // Default values if parsing fails
 }
 
-const getGeneratedImage = async (req, res) => {
+const getFalGeneratedImage = async (req, res) => {
   try {
     console.log("getGeneratedImage req.body", req.body);
     const { request_id } = req.body;
@@ -114,36 +128,10 @@ const getGeneratedImage = async (req, res) => {
         };
         res.json(resp);
       }
-      // await axios
-      //   .get(
-      //     `https://queue.fal.run/fal-ai/flux/dev/requests/${request_id}/status?logs=1`,
-
-      //     {
-      //       headers: {
-      //         Authorization: `Key ${process.env.FAL_API_KEY}`,
-      //         "Content-Type": "application/json",
-      //       },
-      //     }
-      //   )
-      //   .then(async (response) => {
-      //     console.log("Response:", response.data);
-      //     console.log("Response2222222:", response.data.logs[0]);
-
-      //     console.log("aaaaaaa", getLatestProgress(response.data.logs));
-      //     const resp = {
-      //       status: response.data.status,
-      //       progress: getLatestProgress(response.data.logs),
-      //     };
-      //     res.json(resp);
-      //   })
-      //   .catch((error) => {
-      //     console.error("Error:", error);
-      //     res.status(500).json({ error: "Failed to check generation status" });
-      //   });
     } else {
       const response = {
         status: generation.status,
-        outputUrl: generation.outputUrl,
+        images: generation.images,
       };
       res.json(response);
     }
@@ -208,5 +196,5 @@ module.exports = {
   getStatusWithFAL,
   getResultWithFAL,
   falDevWebhookHandler,
-  getGeneratedImage,
+  getFalGeneratedImage,
 };
