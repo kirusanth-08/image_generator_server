@@ -51,6 +51,10 @@ const generatedImageSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  error: {
+    type: String,
+    required: false,
+  },
 });
 
 const GeneratedImage = mongoose.model("GeneratedImage", generatedImageSchema);
