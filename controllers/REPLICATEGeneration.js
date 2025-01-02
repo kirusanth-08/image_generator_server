@@ -8,7 +8,7 @@ const GeneratedImageSchema = require("../models/generatedImages");
 cloudinary.config({
   cloud_name: "dgaz3npgq", // Replace with your cloud name
   api_key: "452792492559544", // Replace with your API key
-  api_secret: "yF9lPLOysXJEsFOs3DF1fHh6XaE", // Replace with your API secret
+  api_secret: "yF9lPLOysXJEsFOs3DF1fHh6XaE", // Replace with your API secre
 });
 
 const generateVariences = async (req, res) => {
