@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const customModelSchema = new mongoose.Schema({
+const storedLoras = new mongoose.Schema({
     user: {
         type: mongoose.Schema.Types.ObjectId,
         required: true
@@ -28,11 +28,11 @@ const customModelSchema = new mongoose.Schema({
     }
 });
 
-customModelSchema.pre('save', function(next) {
+storedLoras.pre('save', function(next) {
     this.updatedAt = Date.now();
     next();
 });
 
-const CustomModel = mongoose.model('CustomModel', customModelSchema);
+const StoredLora = mongoose.model('StoredLoras', storedLoras);
 
-module.exports = CustomModel;
+module.exports = StoredLora;
